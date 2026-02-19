@@ -1,0 +1,13 @@
+# 12-week Roadmap (Gate-based)
+- Week 1: LLM client + prompt library
+- Week 2: Tool calling runtime
+- Week 3: RAG v1 with citations
+- Week 4: RAG evaluation & replay
+- Week 5: Dialogue state + session store
+- Week 6: Multi-agent collaboration
+- Week 7: Observability + reliability
+- Week 8: Service + Docker
+- Week 9: K8s basics deployment
+- Week 10: Platform features (tenant/quota/audit)
+- Week 11: Portfolio polish
+- Week 12: Interview pack
