@@ -31,12 +31,10 @@ class OpenAIClient(BaseLLMClient):
         if prompt:
             messages.append({"role": "user", "content": prompt})
 
-        resp = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            temperature=0,
-            tools=tools
-        )
+        kwargs = {"model": self.model, "messages": messages, "temperature": 0}
+        if tools:
+            kwargs["tools"] = tools
+        resp = self.client.chat.completions.create(**kwargs)
         return resp.choices[0].message, messages
 
 class ClaudeClient(BaseLLMClient):

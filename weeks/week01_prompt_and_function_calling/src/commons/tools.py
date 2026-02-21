@@ -3,7 +3,7 @@ class WeatherTool:
 
     def get_weather(self, city):
         return f"{city} 晴转多云，东风3-4级，空气质量优，18-25度，温度适宜。"
-    
+    @property
     def definition(self):
         return {
             "type": "function",
