@@ -1,6 +1,6 @@
-from weeks.week01_prompt_and_function_calling.src.llm_basic.commons.prompts import PromptBuilder
-from weeks.week01_prompt_and_function_calling.src.llm_basic.commons.llm_client import OpenAIClient
-from weeks.week01_prompt_and_function_calling.src.llm_basic.commons.tools import WeatherTool
+from commons.prompts import PromptBuilder
+from commons.llm_client import OpenAIClient
+from commons.tools import WeatherTool
 import json
 
 class Assistant:
