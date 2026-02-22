@@ -82,42 +82,55 @@ class CustomerAgent():
         return msg.strip()
     
 
-    def _execute_single_tool_call(self, user_input, tools, tool_execute):
+    def _execute_single_tool_call(self, user_input, tools, tool_execute, max_retry):
         """调 LLM → 解析 tool_call → 执行函数 → 回传结果 → 再调 LLM"""
-        msg, messages = self.llm.call(prompt=user_input, tools=tools, history=self.history)
-        if msg.tool_calls:
-            messages.append(msg)
-            tool_call = msg.tool_calls[0]
-            print(f"fun_args_str：{tool_call.function.arguments}")
-            func_args = json.loads(tool_call.function.arguments)
-            func_name = tool_call.function.name
-            result = self.scenic_desc_tool.execute(func_name, func_args)
-            messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "content": result
-                }
-            )
-            msg, _ = self.llm.call(prompt='', history=messages)
-            return msg.content
-        else:
-            return msg.content
+        messages = list(self.history)
+        messages.append({"role": "user", "content": user_input})
+        for i in range(max_retry):
+            msg, _ = self.llm.call(prompt=None, tools=tools, history=messages)
+            if msg.tool_calls:
+                try:
+                    messages.append(msg)
+                    tool_call = msg.tool_calls[0]
+                    print(f"fun_args_str：{tool_call.function.arguments}")
+                    func_args = json.loads(tool_call.function.arguments)
+                    func_name = tool_call.function.name
+                    result = tool_execute.execute(func_name, func_args)
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": result
+                        }
+                    )
+                    msg, _ = self.llm.call(prompt='', history=messages)
+                    return msg.content
+                except Exception as e:
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": str(e)
+                        }
+                    )
+                    print(e)
+            else:
+                return msg.content
     
     def scenic_desc_handle(self, user_input):
         """景区信息相关问题处理"""
         tools = [self.scenic_desc_tool.definition]
-        return self._execute_single_tool_call(user_input, tools,self.scenic_desc_tool.definition)
+        return self._execute_single_tool_call(user_input, tools,self.scenic_desc_tool.definition, 3)
         
     def create_order_handle(self, user_input):
         """创建订单相关问题处理"""
         tools = [self.create_order_tool.definition]
-        return self._execute_single_tool_call(user_input, tools,self.create_order_tool.definition)
+        return self._execute_single_tool_call(user_input, tools,self.create_order_tool.definition, 3)
         
     def order_detail_handle(self, user_input):
         """订单详情相关问题处理"""
         tools = [self.order_detail_tool.definition]
-        return self._execute_single_tool_call(user_input, tools,self.order_detail_tool.definition)
+        return self._execute_single_tool_call(user_input, tools,self.order_detail_tool.definition, 3)
 
     def refund_handle(self, user_input):
         """退款相关问题处理"""

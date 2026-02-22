@@ -62,6 +62,8 @@ def main():
     )
     print(resp.choices[0].message.content)
 
+
+
 if __name__ == "__main__":
     load_dotenv()
     main()

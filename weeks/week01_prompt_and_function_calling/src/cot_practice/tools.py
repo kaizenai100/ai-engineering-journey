@@ -284,3 +284,30 @@ class RefundAmountTool:
         }
         return mapping[func_name](**func_args)
         
+
+class RefundOrderTool:
+    """申请退款"""
+
+    def refund_order(self, order_id):
+        """申请退款"""
+        return f"已申请退款，订单号：{order_id}"
+    
+    def definition(self):
+        return {
+            "type":"function",
+            "function":{
+                "name":"refund_order",
+                "description":"发起退款申请",
+                "parameters":{
+                    "type": "object",
+                    "properties": {
+                        "order_id": {
+                            "type": "string",
+                            "description": "订单号"
+                        }
+                    },
+                    "required": ["order_id"]
+                }
+            }
+
+        }
