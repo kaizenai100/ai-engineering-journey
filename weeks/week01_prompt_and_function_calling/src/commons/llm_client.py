@@ -37,6 +37,15 @@ class OpenAIClient(BaseLLMClient):
         resp = self.client.chat.completions.create(**kwargs)
         return resp.choices[0].message, messages
 
+    def chat(self, prompt):
+        messages = []
+        if prompt:
+            messages.append({"role": "user", "content": prompt})
+
+        kwargs = {"model": self.model, "messages": messages, "temperature": 0}
+        resp = self.client.chat.completions.create(**kwargs)
+        return resp.choices[0].message.content
+
 class ClaudeClient(BaseLLMClient):
     """将来扩展 Claude 时在这里实现"""
     pass

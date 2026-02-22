@@ -2,6 +2,9 @@ from commons.prompts import PromptBuilder
 from commons.llm_client import OpenAIClient
 from commons.tools import WeatherTool
 import json
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 class Assistant:
     """智能助手，负责意图识别和任务分发"""
