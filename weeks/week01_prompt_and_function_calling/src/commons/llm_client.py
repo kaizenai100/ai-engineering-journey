@@ -24,7 +24,7 @@ class OpenAIClient(BaseLLMClient):
         )
         self.model = os.getenv("OPENAI_MODEL", "gpt-5.2")
 
-    def call(self, prompt, history=None, tools=None):
+    def call(self, prompt, history=None, tools=None,response_format=None):
         messages = []
         if history:
             messages.extend(history)
@@ -34,6 +34,8 @@ class OpenAIClient(BaseLLMClient):
         kwargs = {"model": self.model, "messages": messages, "temperature": 0}
         if tools:
             kwargs["tools"] = tools
+        if response_format:
+            kwargs["response_format"] = response_format
         resp = self.client.chat.completions.create(**kwargs)
         return resp.choices[0].message, messages
 
