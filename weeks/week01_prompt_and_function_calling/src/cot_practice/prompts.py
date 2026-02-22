@@ -1,8 +1,10 @@
 class PromptBuilder:
     @staticmethod
-    def intent_prompt(input_text):
+    def intent_prompt(input_text, context):
+        context_block = f"\n最近对话记录：\n{context}\n" if context else ""
         return f"""你是一个门票OTA平台的智能客服，请识别用户输入的意图。
-
+    {context_block}
+    
     用户输入：{input_text}
 
     可选意图（只能从以下选项中选择一个）：
