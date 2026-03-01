@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import os
 def get_llm():
     return OpenAI(
-        api_key=os.environ["OPENAI_API_KEY"], 
+        api_key=os.environ["CLAUDE_API_KEY"], 
         base_url=os.environ["OPENAI_BASE_URL"],
         default_headers={
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
@@ -13,7 +13,7 @@ def get_llm():
 def main(temperature):
     load_dotenv()
     client = get_llm()
-    model = os.getenv("OPENAI_MODEL", "gpt-5.2")
+    model = os.getenv("CLAUDE_MODEL", "gpt-5.2")
     result = client.chat.completions.create(
         model=model,
         messages=[

@@ -4,7 +4,7 @@ from langchain_core.messages.base import BaseMessage
 
 class PromptBuilder:
     @staticmethod
-    def intent_prompt(input_text, context) -> list[BaseMessage]:
+    def intent_prompt(input_text, context:None) -> list[BaseMessage]:
         context_block = f"\n最近对话记录：\n{context}\n" if context else ""
         return [
             SystemMessage(content="""你是意图分类器。

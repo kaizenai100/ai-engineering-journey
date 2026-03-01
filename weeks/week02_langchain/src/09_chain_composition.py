@@ -1,11 +1,29 @@
-from domain.order_info import OrderInfo
-from langchain_core.tools import tool
+from langchain_core.output_parsers import StrOutputParser, JsonOutputParser, PydanticOutputParser
+from commons.configs import Configs
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda, RunnableBranch
+from pydantic import BaseModel, Field
+from cot_practice.prompts import PromptBuilder
+import os
+from dotenv import load_dotenv
 
-@tool
-def get_scenic_desc(scenic_name):
+def get_llm():
+    load_dotenv()
+    return ChatOpenAI(
+        model=os.getenv("OPENAI_MODEL", "gpt-5.2"),
+        temperature=0.0,
+        max_tokens=1024,
+        base_url=os.environ["OPENAI_BASE_URL"],
+        default_headers=Configs.IKUN_API_HEADERS
+    )
+
+
+def get_scenic_desc(query:str) -> str:
     """从数据库中直接获取相关景区的描述信息，如果是模糊名称匹配到多个景区时，直接将所有景区信息返回给大模型，交由大模型去处理"""
 
-    if scenic_name == "寒山寺":
+    print(f"景区：{query}")
+    if query == "寒山寺":
         return f"""
             寒山寺介绍：
             票价：10元/人
@@ -40,7 +58,7 @@ def get_scenic_desc(scenic_name):
             改期规则：门票一经售出，不支持改期，如需改期可先申请退票后重新购买。
         
             """
-    elif scenic_name == "拙政园":
+    elif query == "拙政园":
         return f"""
             拙政园介绍：
                 票价：30元/人
@@ -122,38 +140,78 @@ def get_scenic_desc(scenic_name):
             改期规则：门票一经售出，不支持改期，如需改期可先申请退票后重新购买。
                 """
 
-@tool
-def create_order(username: str, phone: str, scenic_name: str, travel_date: str, ticket_num: int) -> str:
-    """创建订单"""
-    return "订单创建成功"
+def extract_keywords(query:str) -> str:
+    llm = get_llm() 
+    prompt = ChatPromptTemplate.from_template("""从以下文本中提取关键字信息信息。
+    文本：{query}
 
-@tool
-def get_order_detail(order_id: str) -> str:
-    """获取景区的订单详情"""
-    print(f"正在查询订单号：{order_id}的订单详情")
-    order_info = _get_order_info(order_id)
-    return f"""
-        订单号：{order_id}
-        支付金额：{order_info.pay_amount}元
-        出游人数：{order_info.people_num}人
-        景点名称：{order_info.scenic_name}
-        订单状态：{order_info.order_flag_desc}
-        订单创建时间：{order_info.create_time}
-        出游时间：{order_info.travel_time}
-        取票码：{order_info.ticket_code}
-    """
+    举例：
+    上海的天气怎么样 输出=>上海
+    拙政园今天开园吗 输出=>拙政园
+    上海的景点有哪些 输出=>上海
 
-@tool
-def get_refund_amount(order_id: str, deduct_ratio: float) -> float:
-    """获取可退金额"""
-    order_info = _get_order_info(order_id)
-    return order_info.pay_amount * (1 - deduct_ratio)
+    只返回一个关键词就可以了。""")
+    chain = prompt | llm | StrOutputParser()
+    result = chain.invoke({"query": query})
+    print(f"关键词：{result}")
+    return result
 
-@tool
-def refund_order(order_id: str) -> str:
-    """申请退款"""
-    return f"已申请退款，订单号：{order_id}"
 
-# 内部辅助函数，不暴露给 LLM
-def _get_order_info(order_id: str) -> OrderInfo:
-    return OrderInfo(order_id, 20, 2, 2, "预定成功", "2026-02-01 10:00:00", "2026-02-27", "123456", "寒山寺")
+def logger(query:str):
+    print(f"query={query}")
+    return query
+
+
+def runnable_passthrough(query):
+    llm = get_llm() 
+    prompt = ChatPromptTemplate.from_template("请根据上下文回答问题：{query}\n上下文：{context}")
+    chain = (RunnablePassthrough.assign(keywords=extract_keywords) 
+             | RunnablePassthrough.assign(context=lambda k:get_scenic_desc(k["keywords"]))
+             | prompt | llm | StrOutputParser())
+
+    return chain.invoke({"query": query})
+
+
+
+def classify_intent(query:str) -> str:
+    """意图识别"""
+    messages = PromptBuilder.intent_prompt(input_text=query, context='')
+    llm = get_llm()
+    return llm.invoke(messages).content
+
+def runnable_lambda(query):
+    llm = get_llm() 
+    prompt = ChatPromptTemplate.from_template("请根据上下文回答问题：{query}\n上下文：{context}")
+    chain = (RunnableLambda(logger) | RunnablePassthrough.assign(keywords=lambda k: extract_keywords(k["query"])) 
+             | RunnableLambda(logger) | RunnablePassthrough.assign(context=lambda k:get_scenic_desc(k["keywords"]))
+             | RunnableLambda(logger) | prompt | llm | StrOutputParser())
+
+    return chain.invoke({"query": query})
+
+def runnable_branch(query):
+    prompt = ChatPromptTemplate.from_template(
+        "请根据上下文回答问题：{query}\n上下文：{context}"
+    )
+    llm = get_llm()
+
+    # 查票价/攻略链
+    info_chain = (
+        RunnablePassthrough.assign(keywords=lambda k: extract_keywords(k["query"]))
+        | RunnablePassthrough.assign(context=lambda k: get_scenic_desc(k["keywords"]))
+        | prompt | llm | StrOutputParser()
+    )
+
+    # 闲聊兜底链
+    chat_prompt = ChatPromptTemplate.from_template("你是一个友好的旅游助手，请回答：{query}")
+    chat_chain = chat_prompt | llm | StrOutputParser()
+
+    branch = RunnableBranch(
+        (lambda x: "入园咨询" in x["intent"], info_chain),
+        (lambda x: "票价" in x["intent"], info_chain),
+        chat_chain  # 兜底
+    )
+
+    chain = RunnablePassthrough.assign(intent=lambda x: classify_intent(x["query"])) | branch
+    return chain.invoke({"query": query})
+if __name__ == "__main__":
+    print(runnable_branch("寒山寺票价"))
